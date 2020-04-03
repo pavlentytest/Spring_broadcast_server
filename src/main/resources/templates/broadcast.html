@@ -1,0 +1,106 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+    <title>Чат сервер (broadcast сообщения)</title>
+</head>
+<body onload="disconnect()">
+<div>
+    <button id="connect" onclick="connect();">Подключиться</button>
+    <button id="disconnect" onclick="disconnect();" disabled="disabled">Отключиться</button>
+</div>
+<div id="nameDiv">
+    <label for="name">Введите ваше имя:</label>
+    <input type="text" id="name" placeholder="name"/>
+    <button id="sendName" onclick="sendName();">Ок</button>
+
+</div>
+
+<div id="messageDiv">
+    <label for="name">Сообщение:</label>
+    <input type="text" id="message" placeholder="message"/>
+    <button id="sendMessage" onclick="sendMessage();">Отправить</button>
+
+</div>
+<div>
+<p id="response"></p>
+</div>
+<script th:src="@{sockjs.min.js}"></script>
+<script th:src="@{stomp.min.js}"></script>
+<script th:src="@{jquery.js}"></script>
+<script type="text/javascript">
+    var stompClient = null;
+    var token = "token12345";
+    var name;
+
+    function setConnected(connected) {
+        conn = $('#connect');
+        disconn = $('#disconnect');
+        if (connected) {
+            conn.attr('disabled', 'true');
+            disconn.removeAttr('disabled');
+        } else {
+            conn.removeAttr('disabled');
+            disconn.attr('disabled', 'true');
+        }
+        document.getElementById('nameDiv').style.visibility = connected ? 'visible' : 'hidden';
+        $('#response').html();
+    }
+
+    function showMessage(flag) {
+        document.getElementById('messageDiv').style.visibility = flag ? 'visible' : 'hidden';
+    }
+
+    function connect() {
+        var socket = new SockJS("/im");
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            setConnected(true);
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/b', function (response) {
+                showResponse(JSON.parse(response.body).response);
+            });
+        });
+    }
+
+    function disconnect() {
+        if (stompClient != null) {
+            stompClient.disconnect();
+        }
+        setConnected(false);
+        showMessage(false);
+        console.log('Disconnected');
+    }
+
+    function sendName() {
+        name = $('#name').val();
+        stompClient.send(
+            '/broadcast',
+            {
+                "authorization": token
+            },
+            JSON.stringify({'type': 'name', 'message': name})
+        );
+        showMessage(true);
+    }
+
+    function sendMessage() {
+        var message = $('#message').val();
+        stompClient.send(
+            '/broadcast',
+            {
+                "authorization": token
+            },
+            JSON.stringify({'type': 'chat', 'name': name, 'message': message})
+        );
+        $('#message').val('');
+        showMessage(true);
+    }
+
+    function showResponse(message) {
+        var response = $('#response');
+        response.append('<br>\n\r' + message);
+    }
+</script>
+</body>
+</html>
